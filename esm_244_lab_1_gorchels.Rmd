@@ -1,0 +1,123 @@
+---
+title: "esm_244_gorchels"
+author: "Madeline Gorchels"
+date: "1/10/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Objectives:
+- basic review (data wrangling)
+- intro to spatial data in R with sf
+- intro to shiny apps
+
+1.Loading Packages
+```{r}
+library(tidyverse)
+library(sf)
+library(leaflet)
+library(tmap)
+```
+
+2. Review in reading, wrangling and exploring data 
+
+a. Read in the data
+```{r}
+wine = read_csv("wine_data.csv")
+
+```
+
+b. Wrangling
+```{r}
+wine_new = wine %>%
+  select(country, province, region_1, points, price, winery) %>% 
+  rename(state = province) %>% 
+  filter(state == "California" | state == "Oregon" | state == "Washington") %>% 
+  mutate(ppd = points/price) %>% 
+  arrange(-ppd)
+  
+```
+
+c. Use group_by and summarize to find summary statistics by group
+
+```{r}
+
+wine_summary = wine_new %>% 
+  group_by(state) %>% 
+  summarize(
+    mean_ppd = mean(ppd, na.rm = TRUE), 
+    max_ppd = max(ppd, na.rm = TRUE)
+    
+  )
+
+```
+
+d. A few gg-graphics
+
+```{r}
+wine_hists = ggplot(wine_new, aes(x = ppd))+
+  geom_histogram(aes(fill = state))+
+  theme_classic()+
+  facet_wrap(~state, scales = "free")
+
+wine_hists
+```
+new graph: scatter plot of price vs points adding a linear model trendline on top of it 
+
+```{r}
+wine_points = ggplot(wine_new, aes(x = price, y = points))+
+  geom_point(aes(color = state), alpha = 0.5)+
+  geom_smooth(color = "black", method = "lm", se = FALSE)+
+  theme_classic()+
+  scale_color_manual(values = c("royalblue", "mediumorchid1", "orange"))+
+  facet_wrap(~state)
+  
+
+wine_points
+
+```
+
+2. California Counties Spatial Data Using sf
+
+```{r}
+ca_counties = st_read(dsn = ".", layer = "CA_Counties_TIGER2016")
+
+# plot(ca_counties)
+
+ca_land = ca_counties %>% 
+  select(NAME, ALAND) 
+ #can't currently match because the variables are named NAMES and COUNTY
+ca_pop_inc = read_csv("ca_pop_inc.csv") %>%
+  rename(NAME = COUNTY)
+
+ca_df = full_join(ca_land, ca_pop_inc) %>% 
+  select(NAME, MedFamilyIncome) #geometries will be rememebered
+
+
+```
+
+Now lets use geom_sf to make a map
+
+```{r}
+ca_income = ggplot(ca_df)+
+  geom_sf(aes(fill = MedFamilyIncome))
+
+ca_income
+
+#leaflet(ca_df) %>% #need to change the coordinate reference system to match
+  #addPolygons()
+ca_df_transform = st_transform(ca_df, crs = 4326)
+leaflet(ca_df_transform) %>% 
+  addTiles() %>% 
+  addPolygons()
+```
+
+Now lets make an app
+
+```{r}
+
+```
+
